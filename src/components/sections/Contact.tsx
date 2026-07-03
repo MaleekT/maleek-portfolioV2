@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
-import HCaptcha from "@hcaptcha/react-hcaptcha";
+import { useEffect, useRef, useState } from "react";
 
 const contactLinks = [
   {
@@ -26,10 +25,31 @@ const contactLinks = [
   },
 ];
 
-// Public by design: Web3Forms access keys are meant for client-side code.
-const WEB3FORMS_ACCESS_KEY = "6bd99d5c-3e86-412c-8373-81d959edc7e1";
-// Web3Forms' shared hCaptcha sitekey; the response is verified on their server.
-const HCAPTCHA_SITEKEY = "50b2fe65-b00b-4b9e-ad62-3ba471098be2";
+// Turnstile SITE key: public by design (the secret lives server-side in env).
+const TURNSTILE_SITE_KEY = "0x4AAAAADutiFBUORLSjLKe";
+const TURNSTILE_SRC =
+  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+interface TurnstileApi {
+  render: (
+    el: HTMLElement,
+    opts: {
+      sitekey: string;
+      theme?: "dark" | "light" | "auto";
+      callback?: (token: string) => void;
+      "expired-callback"?: () => void;
+      "error-callback"?: () => void;
+    },
+  ) => string;
+  reset: (id: string) => void;
+  remove: (id: string) => void;
+}
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
 
 const inputClass =
   "w-full rounded-[3px] border border-border bg-bg-primary p-3 text-[14px] text-text-primary placeholder:text-placeholder focus:border-accent focus:outline-none";
@@ -38,47 +58,103 @@ type Status = "idle" | "sending" | "success" | "error";
 
 export default function Contact() {
   const [status, setStatus] = useState<Status>("idle");
+  const [errorText, setErrorText] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
-  const [captchaToken, setCaptchaToken] = useState("");
-  const captchaRef = useRef<HCaptcha>(null);
+  const [token, setToken] = useState("");
+  const widgetRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  // Load the Turnstile script once and render the widget explicitly.
+  useEffect(() => {
+    let cancelled = false;
+
+    const renderWidget = () => {
+      if (cancelled || !window.turnstile || !widgetRef.current) return;
+      if (widgetIdRef.current !== null) return;
+      widgetIdRef.current = window.turnstile.render(widgetRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: "dark",
+        callback: (t: string) => setToken(t),
+        "expired-callback": () => setToken(""),
+        "error-callback": () => setToken(""),
+      });
+    };
+
+    let script: HTMLScriptElement | null = null;
+    if (window.turnstile) {
+      renderWidget();
+    } else {
+      script = document.querySelector<HTMLScriptElement>(
+        `script[src="${TURNSTILE_SRC}"]`,
+      );
+      if (!script) {
+        script = document.createElement("script");
+        script.src = TURNSTILE_SRC;
+        script.async = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener("load", renderWidget);
+    }
+
+    return () => {
+      cancelled = true;
+      script?.removeEventListener("load", renderWidget);
+      if (widgetIdRef.current !== null && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const resetCaptcha = () => {
+    setToken("");
+    if (widgetIdRef.current !== null && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (status === "sending") return;
-    if (!captchaToken) {
+    if (!token) {
+      setErrorText("Please complete the captcha first.");
       setStatus("error");
       return;
     }
     setStatus("sending");
     try {
-      const res = await fetch("https://api.web3forms.com/submit", {
+      const botcheck = (
+        e.currentTarget.elements.namedItem("botcheck") as HTMLInputElement | null
+      )?.checked;
+      const res = await fetch("/api/contact", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          access_key: WEB3FORMS_ACCESS_KEY,
-          subject: `Portfolio contact from ${name.replace(/[\r\n]+/g, " ").trim()}`,
-          name,
-          email,
-          message,
-          "h-captcha-response": captchaToken,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, message, token, botcheck }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as { success?: boolean; error?: string };
       if (data.success) {
         setStatus("success");
         setName("");
         setEmail("");
         setMessage("");
-        setCaptchaToken("");
-        captchaRef.current?.resetCaptcha();
+        resetCaptcha();
         window.setTimeout(() => setStatus("idle"), 5000);
       } else {
+        setErrorText(
+          data.error ||
+            "Something went wrong sending your message. Please try again, or email me directly.",
+        );
         setStatus("error");
+        resetCaptcha();
       }
     } catch {
+      setErrorText(
+        "Something went wrong sending your message. Please try again, or email me directly.",
+      );
       setStatus("error");
+      resetCaptcha();
     }
   };
 
@@ -142,7 +218,7 @@ export default function Contact() {
           data-reveal
           className="rounded-[8px] border border-border bg-bg-secondary p-7"
         >
-          {/* Honeypot: hidden from humans; bots that fill it get dropped by Web3Forms */}
+          {/* Honeypot: hidden from humans; bots that tick it get dropped server-side */}
           <input
             type="checkbox"
             name="botcheck"
@@ -203,19 +279,8 @@ export default function Contact() {
             className={`mb-5 resize-y ${inputClass}`}
           />
 
-          <div className="mb-5">
-            <HCaptcha
-              ref={captchaRef}
-              sitekey={HCAPTCHA_SITEKEY}
-              theme="dark"
-              reCaptchaCompat={false}
-              onVerify={(token) => {
-                setCaptchaToken(token);
-                if (status === "error") setStatus("idle");
-              }}
-              onExpire={() => setCaptchaToken("")}
-            />
-          </div>
+          {/* Cloudflare Turnstile */}
+          <div ref={widgetRef} className="mb-5 min-h-[65px]" />
 
           <button
             type="submit"
@@ -229,9 +294,7 @@ export default function Contact() {
           <div aria-live="polite">
             {status === "error" && (
               <p className="mb-0 mt-3 font-mono text-[12px] text-red-400">
-                {captchaToken
-                  ? "Something went wrong sending your message. Please try again, or email me directly."
-                  : "Please complete the captcha first."}
+                {errorText}
               </p>
             )}
             {status === "success" && (

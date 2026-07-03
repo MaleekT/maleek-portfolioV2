@@ -6,3 +6,8 @@ CLAUDE.md
 .next/
 # Design reference, not part of the site
 Portfolio redesign challenge-handoff/
+
+# Env files (secrets never enter git)
+.env
+.env.*
+!.env.example
