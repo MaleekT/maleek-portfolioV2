@@ -26,7 +26,7 @@ const contactLinks = [
 ];
 
 // Turnstile SITE key: public by design (the secret lives server-side in env).
-const TURNSTILE_SITE_KEY = "0x4AAAAADutiFBUORLSjLKe";
+const TURNSTILE_SITE_KEY = "0x4AAAAAADutiFBUORLSjLKe";
 const TURNSTILE_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
