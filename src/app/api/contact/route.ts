@@ -57,22 +57,33 @@ export async function POST(req: Request) {
     );
   }
 
+  // TEMP DEBUG: track the step and surface the real error/codes in the response
+  // so the true cause is visible on the preview. Revert to friendly messages after.
+  let step = "start";
   try {
     // 1. Verify the Turnstile token with Cloudflare (secret stays server-side).
+    step = "turnstile-verify";
     const verifyRes = await fetch(TURNSTILE_VERIFY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ secret, response: token }),
     });
-    const verify = (await verifyRes.json()) as { success?: boolean };
+    const verify = (await verifyRes.json()) as {
+      success?: boolean;
+      "error-codes"?: string[];
+    };
     if (!verify.success) {
       return NextResponse.json(
-        { success: false, error: "Captcha verification failed." },
+        {
+          success: false,
+          error: `Captcha verification failed. [${(verify["error-codes"] ?? []).join(",")}]`,
+        },
         { status: 403 },
       );
     }
 
     // 2. Forward the submission to Web3Forms for email delivery.
+    step = "web3forms-forward";
     const forwardRes = await fetch(WEB3FORMS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -84,18 +95,28 @@ export async function POST(req: Request) {
         message,
       }),
     });
-    const forwarded = (await forwardRes.json()) as { success?: boolean };
+    const forwarded = (await forwardRes.json()) as {
+      success?: boolean;
+      message?: string;
+    };
     if (!forwarded.success) {
       return NextResponse.json(
-        { success: false, error: "Delivery failed. Please try again." },
+        {
+          success: false,
+          error: `Delivery failed. [${forwarded.message ?? "no message"}]`,
+        },
         { status: 502 },
       );
     }
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(`contact route error at ${step}:`, err);
     return NextResponse.json(
-      { success: false, error: "Something went wrong. Please try again." },
+      {
+        success: false,
+        error: `Something went wrong [${step}]: ${err instanceof Error ? err.message : String(err)}`,
+      },
       { status: 500 },
     );
   }
