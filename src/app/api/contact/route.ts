@@ -83,10 +83,17 @@ export async function POST(req: Request) {
     }
 
     // 2. Forward the submission to Web3Forms for email delivery.
+    // A real User-Agent is required: Web3Forms sits behind Cloudflare, which
+    // serves an HTML block page to server-side requests that lack one.
     step = "web3forms-forward";
     const forwardRes = await fetch(WEB3FORMS_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
       body: JSON.stringify({
         access_key: accessKey,
         subject: `Portfolio contact from ${name.replace(/[\r\n]+/g, " ")}`,
@@ -95,10 +102,24 @@ export async function POST(req: Request) {
         message,
       }),
     });
-    const forwarded = (await forwardRes.json()) as {
-      success?: boolean;
-      message?: string;
-    };
+    // Read as text first so a non-JSON (HTML) response does not throw; TEMP
+    // DEBUG surfaces the status + snippet if it is still not JSON.
+    const forwardText = await forwardRes.text();
+    let forwarded: { success?: boolean; message?: string };
+    try {
+      forwarded = JSON.parse(forwardText) as {
+        success?: boolean;
+        message?: string;
+      };
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Delivery non-JSON [${forwardRes.status}]: ${forwardText.slice(0, 120)}`,
+        },
+        { status: 502 },
+      );
+    }
     if (!forwarded.success) {
       return NextResponse.json(
         {
