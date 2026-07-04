@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 
 const TURNSTILE_VERIFY_URL =
   "https://challenges.cloudflare.com/turnstile/v0/siteverify";
-const WEB3FORMS_URL = "https://api.web3forms.com/submit";
+const RESEND_URL = "https://api.resend.com/emails";
+
+// Free Resend tier sends from this shared address; replies route to the visitor.
+const MAIL_FROM = "Portfolio Contact <onboarding@resend.dev>";
+const MAIL_TO = "maleektaiwo164@gmail.com";
 
 interface ContactBody {
   name?: string;
@@ -12,10 +16,19 @@ interface ContactBody {
   botcheck?: boolean;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function POST(req: Request) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  const accessKey = process.env.WEB3FORMS_ACCESS_KEY;
-  if (!secret || !accessKey) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!secret || !resendKey) {
     return NextResponse.json(
       { success: false, error: "Server is not configured for contact form." },
       { status: 500 },
@@ -57,87 +70,53 @@ export async function POST(req: Request) {
     );
   }
 
-  // TEMP DEBUG: track the step and surface the real error/codes in the response
-  // so the true cause is visible on the preview. Revert to friendly messages after.
-  let step = "start";
   try {
     // 1. Verify the Turnstile token with Cloudflare (secret stays server-side).
-    step = "turnstile-verify";
     const verifyRes = await fetch(TURNSTILE_VERIFY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ secret, response: token }),
     });
-    const verify = (await verifyRes.json()) as {
-      success?: boolean;
-      "error-codes"?: string[];
-    };
+    const verify = (await verifyRes.json()) as { success?: boolean };
     if (!verify.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Captcha verification failed. [${(verify["error-codes"] ?? []).join(",")}]`,
-        },
+        { success: false, error: "Captcha verification failed." },
         { status: 403 },
       );
     }
 
-    // 2. Forward the submission to Web3Forms for email delivery.
-    // A real User-Agent is required: Web3Forms sits behind Cloudflare, which
-    // serves an HTML block page to server-side requests that lack one.
-    step = "web3forms-forward";
-    const forwardRes = await fetch(WEB3FORMS_URL, {
+    // 2. Send the email via Resend (real server API, no browser challenge).
+    const safeName = name.replace(/[\r\n]+/g, " ");
+    const sendRes = await fetch(RESEND_URL, {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${resendKey}`,
         "Content-Type": "application/json",
-        Accept: "application/json",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
       body: JSON.stringify({
-        access_key: accessKey,
-        subject: `Portfolio contact from ${name.replace(/[\r\n]+/g, " ")}`,
-        name,
-        email,
-        message,
+        from: MAIL_FROM,
+        to: [MAIL_TO],
+        reply_to: email,
+        subject: `Portfolio contact from ${safeName}`,
+        text: `Name: ${safeName}\nEmail: ${email}\n\n${message}`,
+        html: `<p><strong>Name:</strong> ${escapeHtml(safeName)}</p><p><strong>Email:</strong> ${escapeHtml(email)}</p><p style="white-space:pre-wrap">${escapeHtml(message)}</p>`,
       }),
     });
-    // Read as text first so a non-JSON (HTML) response does not throw; TEMP
-    // DEBUG surfaces the status + snippet if it is still not JSON.
-    const forwardText = await forwardRes.text();
-    let forwarded: { success?: boolean; message?: string };
-    try {
-      forwarded = JSON.parse(forwardText) as {
-        success?: boolean;
-        message?: string;
-      };
-    } catch {
+
+    if (!sendRes.ok) {
+      const detail = await sendRes.text();
+      console.error(`Resend send failed [${sendRes.status}]:`, detail);
       return NextResponse.json(
-        {
-          success: false,
-          error: `Delivery non-JSON [${forwardRes.status}]: ${forwardText.slice(0, 120)}`,
-        },
-        { status: 502 },
-      );
-    }
-    if (!forwarded.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Delivery failed. [${forwarded.message ?? "no message"}]`,
-        },
+        { success: false, error: "Delivery failed. Please try again." },
         { status: 502 },
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error(`contact route error at ${step}:`, err);
+    console.error("contact route error:", err);
     return NextResponse.json(
-      {
-        success: false,
-        error: `Something went wrong [${step}]: ${err instanceof Error ? err.message : String(err)}`,
-      },
+      { success: false, error: "Something went wrong. Please try again." },
       { status: 500 },
     );
   }
