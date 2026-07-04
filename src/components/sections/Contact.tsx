@@ -115,6 +115,11 @@ export default function Contact() {
     }
   };
 
+  // Clear a finished status the moment the visitor starts a new message.
+  const resetStatusOnEdit = () => {
+    if (status === "success" || status === "error") setStatus("idle");
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (status === "sending") return;
@@ -140,7 +145,6 @@ export default function Contact() {
         setEmail("");
         setMessage("");
         resetCaptcha();
-        window.setTimeout(() => setStatus("idle"), 5000);
       } else {
         setErrorText(
           data.error ||
@@ -162,7 +166,7 @@ export default function Contact() {
     status === "sending"
       ? "Sending..."
       : status === "success"
-        ? "✓ Sent. Thanks!"
+        ? "✓ Message Sent"
         : "Send Message";
 
   return (
@@ -241,7 +245,10 @@ export default function Contact() {
             minLength={2}
             maxLength={100}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              resetStatusOnEdit();
+            }}
             placeholder="Your name"
             className={`mb-4 ${inputClass}`}
           />
@@ -257,7 +264,10 @@ export default function Contact() {
             required
             maxLength={200}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              resetStatusOnEdit();
+            }}
             placeholder="you@email.com"
             className={`mb-4 ${inputClass}`}
           />
@@ -274,7 +284,10 @@ export default function Contact() {
             minLength={10}
             maxLength={5000}
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => {
+              setMessage(e.target.value);
+              resetStatusOnEdit();
+            }}
             placeholder="Tell me about the project"
             className={`mb-5 resize-y ${inputClass}`}
           />
@@ -285,8 +298,8 @@ export default function Contact() {
           <button
             type="submit"
             data-magnet
-            disabled={status === "sending"}
-            className="w-full rounded-[3px] bg-accent p-4 font-display text-[15px] font-bold text-bg-primary transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={status === "sending" || status === "success"}
+            className={`w-full rounded-[3px] bg-accent p-4 font-display text-[15px] font-bold text-bg-primary transition-colors hover:bg-accent-hover disabled:cursor-not-allowed ${status === "sending" ? "opacity-70" : ""}`}
           >
             {buttonLabel}
           </button>
@@ -299,7 +312,7 @@ export default function Contact() {
             )}
             {status === "success" && (
               <p className="mb-0 mt-3 font-mono text-[12px] text-accent">
-                Your message is in my inbox. I&apos;ll get back to you within 24
+                Thanks for reaching out. I&apos;ll get back to you within 24
                 hours.
               </p>
             )}
