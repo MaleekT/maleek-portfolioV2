@@ -2,8 +2,8 @@
 
 export default function Hero() {
   return (
-    <header className="relative flex min-h-screen flex-col justify-center overflow-hidden px-7 pb-16 pt-[110px] md:pt-32">
-      <div className="relative mx-auto w-full max-w-[1340px]">
+    <header className="relative flex min-h-screen flex-col justify-center overflow-hidden pb-16 pt-[110px] md:pt-32">
+      <div className="relative mx-auto w-full max-w-[1340px] px-7">
         {/* Ghost MT watermark */}
         <div
           data-parallax="0.5"
@@ -29,9 +29,12 @@ export default function Hero() {
           className="relative z-10"
           style={{ transformStyle: "preserve-3d", willChange: "transform" }}
         >
+          {/* "MALEEK" is ~7em wide in Syne, so (100vw - 56px gutters) / 7.2 sizes it
+              to span the content column without clipping the K; capped at 180px so it
+              also fits the 1340px desktop column. */}
           <h1
             className="m-0 font-display font-extrabold leading-[0.82] tracking-[-0.03em]"
-            style={{ fontSize: "clamp(48px, 15vw, 220px)" }}
+            style={{ fontSize: "min(calc((100vw - 56px) / 7.2), 180px)" }}
           >
             MALEEK
             <br />
