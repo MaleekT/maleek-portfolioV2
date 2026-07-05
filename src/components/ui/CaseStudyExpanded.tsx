@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import type Lenis from "@studio-freight/lenis";
 import { Project } from "@/types";
+import { useScrollLock } from "@/hooks/useScrollLock";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -22,25 +23,13 @@ export default function CaseStudyExpanded({
   const { caseStudy, liveUrl, title, category } = project;
   const num = String(index + 1).padStart(2, "0");
 
-  // Pause page scroll (Lenis + native) while the overlay is open; Escape closes.
-  useEffect(() => {
-    const lenis = (window as unknown as { __lenis?: Lenis }).__lenis;
-    lenis?.stop();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      lenis?.start();
-    };
-  }, [onClose]);
+  // Freeze page scroll and trap keyboard focus (Escape closes) while open.
+  useScrollLock(true);
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
   return (
     <motion.div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={`${title} case study`}
@@ -50,6 +39,20 @@ export default function CaseStudyExpanded({
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="fixed inset-0 z-[80] bg-bg-primary"
     >
+      {/* Pinned close button first in the DOM so it is the initial focus target
+          (visible, top-right) and Tab order starts here without a scroll jump. */}
+      <motion.button
+        type="button"
+        onClick={onClose}
+        aria-label="Close case study"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { delay: 0.4, duration: 0.3 } }}
+        exit={{ opacity: 0 }}
+        className="absolute right-5 top-5 z-[6] flex h-12 w-12 items-center justify-center rounded-[3px] border border-border-hover bg-bg-primary/70 text-[19px] text-accent backdrop-blur-md transition-colors duration-300 hover:bg-accent hover:text-bg-primary"
+      >
+        ✕
+      </motion.button>
+
       {/* Scrollable content. data-lenis-prevent lets native scroll through while Lenis is stopped. */}
       <div data-lenis-prevent className="absolute inset-0 overflow-y-auto overflow-x-hidden">
         <div className="relative z-[2] mx-auto max-w-[1080px] px-6 pb-24 pt-20">
@@ -238,19 +241,6 @@ export default function CaseStudyExpanded({
           </motion.div>
         </div>
       </div>
-
-      {/* Pinned close button: sibling of the scroll container so it never scrolls away */}
-      <motion.button
-        type="button"
-        onClick={onClose}
-        aria-label="Close case study"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { delay: 0.4, duration: 0.3 } }}
-        exit={{ opacity: 0 }}
-        className="absolute right-5 top-5 z-[6] flex h-12 w-12 items-center justify-center rounded-[3px] border border-border-hover bg-bg-primary/70 text-[19px] text-accent backdrop-blur-md transition-colors duration-300 hover:bg-accent hover:text-bg-primary"
-      >
-        ✕
-      </motion.button>
     </motion.div>
   );
 }

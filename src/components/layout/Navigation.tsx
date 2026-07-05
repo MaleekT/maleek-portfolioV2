@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useScrollLock } from "@/hooks/useScrollLock";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const navLinks = [
   { label: "Work", href: "#work" },
@@ -11,6 +13,12 @@ const navLinks = [
 
 export default function Navigation() {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Lock scroll and trap focus while the full-screen mobile menu is open.
+  useScrollLock(menuOpen);
+  const menuRef = useFocusTrap<HTMLDivElement>(menuOpen, () =>
+    setMenuOpen(false),
+  );
 
   const handleNav = (href: string) => {
     setMenuOpen(false);
@@ -83,7 +91,10 @@ export default function Navigation() {
 
       {/* Mobile menu overlay */}
       {menuOpen && (
-        <div className="fixed inset-0 z-[70] flex flex-col bg-bg-primary md:hidden">
+        <div
+          ref={menuRef}
+          className="fixed inset-0 z-[70] flex flex-col bg-bg-primary md:hidden"
+        >
           <div
             className="pointer-events-none absolute inset-0"
             style={{
