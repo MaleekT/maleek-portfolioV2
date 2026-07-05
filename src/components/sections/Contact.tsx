@@ -200,19 +200,22 @@ export default function Contact() {
             build.
           </p>
           <div className="mt-6 flex flex-col">
-            {contactLinks.map((c) => (
-              <a
-                key={c.label}
-                href={c.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-magnet
-                className="flex justify-between border-b border-border py-3.5 font-mono text-[13px] transition-colors duration-300 hover:text-accent"
-              >
-                <span className="text-text-dim">{c.label}</span>
-                <span>{c.value}</span>
-              </a>
-            ))}
+            {contactLinks.map((c) => {
+              const external = c.href.startsWith("http");
+              return (
+                <a
+                  key={c.label}
+                  href={c.href}
+                  target={external ? "_blank" : undefined}
+                  rel={external ? "noopener noreferrer" : undefined}
+                  data-magnet
+                  className="flex justify-between border-b border-border py-3.5 font-mono text-[13px] transition-colors duration-300 hover:text-accent"
+                >
+                  <span className="text-text-dim">{c.label}</span>
+                  <span>{c.value}</span>
+                </a>
+              );
+            })}
           </div>
         </div>
 
