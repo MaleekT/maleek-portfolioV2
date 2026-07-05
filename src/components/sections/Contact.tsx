@@ -25,6 +25,23 @@ const contactLinks = [
   },
 ];
 
+// mailto opens the visitor's default mail app, which works on mobile and on any
+// desktop with a mail client. Desktop browsers with no mail client do nothing on
+// mailto, so on a fine pointer we open Gmail's compose window instead. Touch
+// devices keep the native mailto behavior.
+const GMAIL_COMPOSE =
+  "https://mail.google.com/mail/?view=cm&fs=1&to=maleektaiwo164@gmail.com";
+
+function openMailClient(
+  e: React.MouseEvent<HTMLAnchorElement>,
+  href: string,
+): void {
+  if (!href.startsWith("mailto:")) return;
+  if (window.matchMedia("(pointer: coarse)").matches) return;
+  e.preventDefault();
+  window.open(GMAIL_COMPOSE, "_blank", "noopener,noreferrer");
+}
+
 // Turnstile SITE key: public by design (the secret lives server-side in env).
 const TURNSTILE_SITE_KEY = "0x4AAAAAADutiFBUORLSjLKe";
 const TURNSTILE_SRC =
@@ -208,6 +225,7 @@ export default function Contact() {
                   href={c.href}
                   target={external ? "_blank" : undefined}
                   rel={external ? "noopener noreferrer" : undefined}
+                  onClick={(e) => openMailClient(e, c.href)}
                   data-magnet
                   className="flex justify-between border-b border-border py-3.5 font-mono text-[13px] transition-colors duration-300 hover:text-accent"
                 >
