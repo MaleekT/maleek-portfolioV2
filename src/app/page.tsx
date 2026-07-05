@@ -11,6 +11,7 @@ import HowIThink from "@/components/sections/HowIThink";
 import Contact from "@/components/sections/Contact";
 import Chatbot from "@/components/ui/Chatbot";
 import MotionLayer from "@/components/ui/MotionLayer";
+import IntroGate from "@/components/ui/IntroGate";
 
 export default function Home() {
   return (
@@ -35,6 +36,7 @@ export default function Home() {
 
       <Chatbot />
       <MotionLayer />
+      <IntroGate />
     </>
   );
 }
