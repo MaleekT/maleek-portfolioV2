@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useScrollLock } from "@/hooks/useScrollLock";
 
 const STATEMENT =
-  "I don't start with how a site should look. I start with what it needs to do. Then I design and build it all myself, nothing templated. If it looks like everyone else's site, I failed you.";
+  "The hard part isn't adding things. It's knowing what to leave out. I find the job your site has to do, then design and build everything around it. If it could be anyone's site, it's not done.";
 
 const SESSION_KEY = "vs-gate-seen";
 const DIM = "#3d423e";
@@ -227,7 +227,7 @@ export default function IntroGate() {
               willChange: "transform",
             }}
           >
-            Cut to the work <span aria-hidden="true">→</span>
+            See my work <span aria-hidden="true">→</span>
           </button>
         </div>
 
