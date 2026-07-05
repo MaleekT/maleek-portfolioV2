@@ -31,7 +31,7 @@ export default function Hero() {
         >
           <h1
             className="m-0 font-display font-extrabold leading-[0.82] tracking-[-0.03em]"
-            style={{ fontSize: "clamp(64px, 15vw, 250px)" }}
+            style={{ fontSize: "clamp(48px, 15vw, 220px)" }}
           >
             MALEEK
             <br />
