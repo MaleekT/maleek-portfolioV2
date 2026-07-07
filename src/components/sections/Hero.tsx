@@ -29,12 +29,12 @@ export default function Hero() {
           className="relative z-10"
           style={{ transformStyle: "preserve-3d", willChange: "transform" }}
         >
-          {/* "MALEEK" is ~7em wide in Syne, so (100vw - 56px gutters) / 7.2 sizes it
-              to span the content column without clipping the K; capped at 180px so it
-              also fits the 1340px desktop column. */}
+          {/* "MALEEK" is ~7em wide in Syne, so (100vw - 56px gutters) / 7.05 sizes it
+              to fill the content column edge-to-edge without clipping the K; capped at
+              182px so it also fits the 1340px desktop column. */}
           <h1
-            className="m-0 font-display font-extrabold leading-[0.82] tracking-[-0.03em]"
-            style={{ fontSize: "min(calc((100vw - 56px) / 7.2), 180px)" }}
+            className="m-0 font-display font-extrabold leading-[0.9] tracking-[-0.03em]"
+            style={{ fontSize: "min(calc((100vw - 56px) / 7.05), 182px)" }}
           >
             MALEEK
             <br />
