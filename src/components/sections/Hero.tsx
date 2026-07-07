@@ -2,7 +2,7 @@
 
 export default function Hero() {
   return (
-    <header className="relative flex min-h-screen flex-col justify-center overflow-hidden pb-16 pt-[110px] md:pt-32">
+    <header className="relative flex flex-col justify-center overflow-hidden pb-16 pt-[110px] md:min-h-screen md:pt-32">
       <div className="relative mx-auto w-full max-w-[1340px] px-7">
         {/* Ghost MT watermark */}
         <div
