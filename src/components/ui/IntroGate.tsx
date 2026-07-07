@@ -227,7 +227,7 @@ export default function IntroGate() {
               willChange: "transform",
             }}
           >
-            See my work <span aria-hidden="true">→</span>
+            See for yourself <span aria-hidden="true">→</span>
           </button>
         </div>
 
