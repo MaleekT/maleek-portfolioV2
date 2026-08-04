@@ -183,7 +183,7 @@ export default function Contact() {
     status === "sending"
       ? "Sending..."
       : status === "success"
-        ? "✓ Message Sent"
+        ? "\u2713 Message Sent"
         : "Send Message";
 
   return (
@@ -202,22 +202,26 @@ export default function Contact() {
             data-reveal
             className="mb-4 font-mono text-[12px] uppercase tracking-[0.2em] text-accent"
           >
-            // Get in touch
+            {"// Get in touch"}
           </div>
           <h2
-            data-reveal
             className="m-0 mb-4 font-display font-extrabold tracking-[-0.03em]"
             style={{ fontSize: "clamp(40px, 6.5vw, 86px)", lineHeight: 0.9 }}
           >
-            Have a project in mind?
+            <span className="block overflow-hidden">
+              <span data-reveal data-reveal-type="masked" data-reveal-delay="70" className="block">Have a project</span>
+            </span>
+            <span className="block overflow-hidden">
+              <span data-reveal data-reveal-type="masked" data-reveal-delay="125" className="block">in mind?</span>
+            </span>
           </h2>
-          <p className="max-w-[440px] text-[15px] leading-[1.6] text-text-muted">
+          <p data-reveal data-reveal-delay="140" className="max-w-[440px] text-[15px] leading-[1.6] text-text-muted">
             I&apos;m open to freelance projects and full-time roles, whether you
             need a complete website, a fresh redesign, or a technical Webflow
             build.
           </p>
           <div className="mt-6 flex flex-col">
-            {contactLinks.map((c) => {
+            {contactLinks.map((c, index) => {
               const external = c.href.startsWith("http");
               return (
                 <a
@@ -226,6 +230,8 @@ export default function Contact() {
                   target={external ? "_blank" : undefined}
                   rel={external ? "noopener noreferrer" : undefined}
                   onClick={(e) => openMailClient(e, c.href)}
+                  data-reveal
+                  data-reveal-delay={String(210 + index * 55)}
                   data-magnet
                   className="flex justify-between border-b border-border py-3.5 font-mono text-[13px] transition-colors duration-300 hover:text-accent"
                 >
@@ -241,6 +247,8 @@ export default function Contact() {
         <form
           onSubmit={handleSubmit}
           data-reveal
+          data-reveal-type="scale-in"
+          data-reveal-delay="120"
           className="rounded-[8px] border border-border bg-bg-secondary p-7"
         >
           {/* Honeypot: hidden from humans; bots that tick it get dropped server-side */}

@@ -47,47 +47,115 @@ export default function MotionLayer() {
       cleanups.push(() => window.clearInterval(id));
     }
 
-    // ---------- Scroll reveals (IntersectionObserver) ----------
+    // ---------- Scroll reveals (one shared IntersectionObserver) ----------
     const reveals = Array.from(
       document.querySelectorAll<HTMLElement>("[data-reveal]"),
     );
-    if (!reduce && reveals.length) {
+    if (reveals.length) {
+      const variants: Record<string, { hidden: string; visible: string }> = {
+        "fade-up": { hidden: "translateY(20px)", visible: "translateY(0)" },
+        "slide-left": { hidden: "translateX(-24px)", visible: "translateX(0)" },
+        "slide-right": { hidden: "translateX(24px)", visible: "translateX(0)" },
+        "scale-in": { hidden: "scale(.96)", visible: "scale(1)" },
+        "id-card": { hidden: "translateY(18px) rotate(-7deg) scale(.96)", visible: "translateY(0) rotate(-4deg) scale(1)" },
+        "clip-horizontal": { hidden: "none", visible: "none" },
+        masked: { hidden: "translateY(100%)", visible: "translateY(0)" },
+        "divider-sweep": { hidden: "scaleX(0)", visible: "scaleX(1)" },
+      };
+
       reveals.forEach((el) => {
+        const kind = el.dataset.revealType || "fade-up";
+        const variant = variants[kind] || variants["fade-up"];
         el.style.opacity = "0";
-        el.style.transform = "translateY(34px)";
-        el.style.transition =
-          "opacity .8s cubic-bezier(.2,.8,.2,1), transform .8s cubic-bezier(.2,.8,.2,1)";
-        el.style.willChange = "opacity, transform";
+        el.style.transform = reduce ? "none" : variant.hidden;
+        el.style.clipPath = reduce
+          ? "none"
+          : kind === "masked"
+            ? "inset(0 0 100% 0)"
+            : kind === "clip-horizontal"
+              ? "inset(0 100% 0 0)"
+              : "none";
+        el.style.transformOrigin = kind === "divider-sweep" ? "left center" : "center";
+        el.style.transition = [
+          `opacity ${reduce ? "180ms" : "600ms"} cubic-bezier(.23,1,.32,1)`,
+          `transform ${reduce ? "180ms" : "600ms"} cubic-bezier(.23,1,.32,1)`,
+          `clip-path ${reduce ? "180ms" : "650ms"} cubic-bezier(.23,1,.32,1)`,
+        ].join(", ");
+        el.style.transitionDelay = reduce ? "0ms" : `${Number(el.dataset.revealDelay || 0)}ms`;
+        el.style.willChange = "opacity, transform, clip-path";
       });
+
+      const reveal = (el: HTMLElement) => {
+        const kind = el.dataset.revealType || "fade-up";
+        el.style.opacity = "1";
+        el.style.transform = reduce ? "none" : (variants[kind]?.visible || "none");
+        el.style.clipPath =
+          kind === "masked" || kind === "clip-horizontal"
+            ? "inset(0 0 0 0)"
+            : "none";
+        window.setTimeout(() => {
+          el.style.willChange = "auto";
+          if (el.dataset.ambient) el.dataset.ambientReady = "true";
+        }, reduce ? 200 : 750 + Number(el.dataset.revealDelay || 0));
+      };
+
+      const observedTargets = new Map<Element, HTMLElement[]>();
+      const proxyFor = (el: HTMLElement) =>
+        (el.dataset.revealType === "masked" ||
+          el.dataset.revealType === "clip-horizontal") &&
+        el.parentElement
+          ? el.parentElement
+          : el;
+      reveals.forEach((el) => {
+        const proxy = proxyFor(el);
+        const targets = observedTargets.get(proxy) || [];
+        targets.push(el);
+        observedTargets.set(proxy, targets);
+      });
+
       const io = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              const el = entry.target as HTMLElement;
-              el.style.opacity = "1";
-              el.style.transform = "none";
-              io.unobserve(el);
-            }
+            if (!entry.isIntersecting) return;
+            (observedTargets.get(entry.target) || []).forEach(reveal);
+            io.unobserve(entry.target);
           });
         },
         { rootMargin: "0px 0px -6% 0px", threshold: 0.08 },
       );
-      reveals.forEach((el) => io.observe(el));
-      // Safety: force-reveal anything still hidden after 2.6s.
-      const safety = window.setTimeout(() => {
-        reveals.forEach((el) => {
-          if (el.style.opacity === "0") {
-            el.style.opacity = "1";
-            el.style.transform = "none";
+
+      const observeReveals = (items: HTMLElement[]) => {
+        const proxies = new Set(items.map(proxyFor));
+        proxies.forEach((proxy) => io.observe(proxy));
+      };
+      const heroReveals = reveals.filter((el) => el.dataset.revealGroup === "hero");
+      observeReveals(reveals.filter((el) => el.dataset.revealGroup !== "hero"));
+
+      let heroStarted = false;
+      const startHero = () => {
+        if (heroStarted) return;
+        heroStarted = true;
+        observeReveals(heroReveals);
+      };
+      let gateObserver: MutationObserver | null = null;
+      if (document.querySelector("[data-intro-gate]")) {
+        window.addEventListener("vs:intro-complete", startHero, { once: true });
+        gateObserver = new MutationObserver(() => {
+          if (!document.querySelector("[data-intro-gate]")) {
+            startHero();
+            gateObserver?.disconnect();
           }
         });
-      }, 2600);
+        gateObserver.observe(document.body, { childList: true, subtree: true });
+        cleanups.push(() => window.removeEventListener("vs:intro-complete", startHero));
+      } else {
+        startHero();
+      }
       cleanups.push(() => {
+        gateObserver?.disconnect();
         io.disconnect();
-        window.clearTimeout(safety);
       });
     }
-
     // ---------- Pointer-driven layer (fine pointers only) ----------
     if (!coarse && !reduce) {
       // Custom cursor: outlined ring (eased) + solid dot (instant).
@@ -135,9 +203,21 @@ export default function MotionLayer() {
       const magnets = Array.from(
         document.querySelectorAll<HTMLElement>("[data-magnet]"),
       );
+      const magnetRects = new Map<HTMLElement, DOMRect>();
       magnets.forEach((el) => {
         el.style.transition = "transform .3s cubic-bezier(.2,.8,.2,1)";
         el.style.willChange = "transform";
+        const enter = () => magnetRects.set(el, el.getBoundingClientRect());
+        const leave = () => {
+          magnetRects.delete(el);
+          el.style.transform = "none";
+        };
+        el.addEventListener("pointerenter", enter);
+        el.addEventListener("pointerleave", leave);
+        cleanups.push(() => {
+          el.removeEventListener("pointerenter", enter);
+          el.removeEventListener("pointerleave", leave);
+        });
       });
 
       const tilt = document.querySelector<HTMLElement>("[data-tilt]");
@@ -202,7 +282,7 @@ export default function MotionLayer() {
         ptx = e.clientX + 26;
         pty = e.clientY + 26;
         magnets.forEach((el) => {
-          const r = el.getBoundingClientRect();
+          const r = magnetRects.get(el) || el.getBoundingClientRect();
           const dx = e.clientX - (r.left + r.width / 2);
           const dy = e.clientY - (r.top + r.height / 2);
           if (Math.abs(dx) < r.width / 2 + 14 && Math.abs(dy) < r.height / 2 + 14) {
@@ -268,6 +348,8 @@ export default function MotionLayer() {
             el.style.cursor = "grabbing";
             el.style.zIndex = "90";
             el.style.animation = "none";
+            el.style.transition = "none";
+            el.style.willChange = "transform";
             cancelAnimationFrame(dragRaf);
             lx = e.clientX;
             ly = e.clientY;

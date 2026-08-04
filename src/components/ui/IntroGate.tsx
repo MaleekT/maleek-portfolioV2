@@ -38,9 +38,17 @@ export default function IntroGate() {
 
   useScrollLock(show && !exiting);
 
+  const complete = () => {
+    setShow(false);
+    window.dispatchEvent(new Event("vs:intro-complete"));
+  };
+
   // Skip immediately if this session already saw it.
   useEffect(() => {
-    if (hasSeen()) setShow(false);
+    if (hasSeen()) {
+      setShow(false);
+      window.dispatchEvent(new Event("vs:intro-complete"));
+    }
   }, []);
 
   // Caption-wave reveal, then arm the CTA.
@@ -140,7 +148,7 @@ export default function IntroGate() {
     const wipe = wipeRef.current;
     const cta = ctaRef.current;
     if (reduce || !gate || !wipe || !cta) {
-      window.setTimeout(() => setShow(false), 400);
+      window.setTimeout(complete, 400);
       return;
     }
 
@@ -161,7 +169,7 @@ export default function IntroGate() {
       gate.style.background = "transparent";
       wipe.style.transition = "opacity .55s";
       wipe.style.opacity = "0";
-      window.setTimeout(() => setShow(false), 560);
+      window.setTimeout(complete, 560);
     }, 700);
   };
 
@@ -195,7 +203,7 @@ export default function IntroGate() {
           className="mb-[26px] font-mono text-[12px] uppercase tracking-[0.2em] text-accent"
           style={fadeIn}
         >
-          // On the record
+          {"// On the record"}
         </div>
 
         <p className="sr-only">{STATEMENT}</p>
@@ -227,7 +235,7 @@ export default function IntroGate() {
               willChange: "transform",
             }}
           >
-            See for yourself <span aria-hidden="true">→</span>
+            See for yourself <span aria-hidden="true">&rarr;</span>
           </button>
         </div>
 
@@ -236,7 +244,7 @@ export default function IntroGate() {
           className="absolute right-0 top-[-70px] font-mono text-[11px] tracking-[0.16em] text-placeholder"
           style={fadeIn}
         >
-          REC ● 00:01
+          REC &#9679; 00:01
         </div>
       </div>
 
